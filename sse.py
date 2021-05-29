@@ -1,5 +1,7 @@
 from queue import Queue
 from collections import defaultdict
+from typing import Union, List, Any, Iterator
+
 
 class Publisher(object):
     """
@@ -16,14 +18,14 @@ class Publisher(object):
         """
         self.subscribers_by_channel = defaultdict(list)
 
-    def _get_subscribers_lists(self, channel):
+    def _get_subscribers_lists(self, channel: Union[str, List[str]]) -> Iterator[List]:
         if isinstance(channel, str):
             yield self.subscribers_by_channel[channel]
         else:
             for channel_name in channel:
                 yield self.subscribers_by_channel[channel_name]
 
-    def get_subscribers(self, channel='default channel'):
+    def get_subscribers(self, channel: str = 'default channel') -> Iterator[List]:
         """
         Returns a generator of all subscribers in the given channel.
 
@@ -34,7 +36,7 @@ class Publisher(object):
         for subscriber_list in self._get_subscribers_lists(channel):
             yield from subscriber_list
 
-    def _publish_single(self, data, queue):
+    def _publish_single(self, data: Any, queue: Queue):
         """
         Publishes a single piece of data to a single user. Data is encoded as
         required.
@@ -44,7 +46,7 @@ class Publisher(object):
             queue.put('data: {}\n'.format(line))
         queue.put('\n')
 
-    def publish(self, data, channel='default channel'):
+    def publish(self, data: Any, channel: Union[str, List[str]] = 'default channel'):
         """
         Publishes data to all subscribers of the given channel.
 
@@ -68,7 +70,9 @@ class Publisher(object):
             for queue, _ in self.get_subscribers(channel):
                 self._publish_single(data, queue)
 
-    def subscribe(self, channel='default channel', properties=None, initial_data=[]):
+    def subscribe(self, channel: Union[str, List[str]] = 'default channel',
+                  properties: Any = None,
+                  initial_data: List = None) -> Iterator[Any]:
         """
         Subscribes to the channel, returning an infinite generator of
         Server-Sent-Events.
@@ -85,6 +89,7 @@ class Publisher(object):
         """
         queue = Queue()
         properties = properties or {}
+        initial_data = initial_data or []
         subscriber = (queue, properties)
 
         for data in initial_data:
@@ -95,7 +100,7 @@ class Publisher(object):
 
         return self._make_generator(queue)
 
-    def _make_generator(self, queue):
+    def _make_generator(self, queue: Queue) -> Iterator[Any]:
         """
         Returns a generator that reads data from the queue, emitting data
         events, while the Publisher.END_STREAM value is not received.
@@ -105,7 +110,6 @@ class Publisher(object):
             if data is Publisher.END_STREAM:
                 return
             yield data
-
 
     def close(self):
         """
